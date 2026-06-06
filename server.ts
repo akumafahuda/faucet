@@ -136,7 +136,7 @@ export function createApp(config: Config, solver: Solver) {
   })
   app.get('/res.php', c => {
     c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
-    c.json(pollResult(c.req.query('id'))) 
+    return c.json(pollResult(c.req.query('id'))) 
   })
   
   app.post('/api/in.php', async c => {
@@ -146,7 +146,7 @@ export function createApp(config: Config, solver: Solver) {
   })
   app.get('/api/res.php', c => {
     c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
-    c.json(pollResult(c.req.query('id')))
+    return c.json(pollResult(c.req.query('id')))
   })
 
   let honoServer: ServerType | null = null
