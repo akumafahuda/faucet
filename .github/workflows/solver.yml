@@ -82,8 +82,8 @@ jobs:
 
       - name: yayaya ini dia
         run: |
-          curl https://api.waryono.my.id/health
           xvfb-run --server-args="-screen 0 1280x1024x24" bun main.ts &
           sleep 8
+          curl https://api.waryono.my.id/health
           cd faucetmini
           python run.py > /dev/null
