@@ -65,6 +65,15 @@ export function createApp(config: Config, solver: Solver) {
   const jobs = new Jobs(config.jobTTL, config.maxJobs)
   const app = new Hono()
 
+  // Di server.ts, tambahkan CORS middleware sebelum route definitions
+  app.use('*', async (c, next) => {
+    c.header('Access-Control-Allow-Origin', '*')
+    c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    c.header('Access-Control-Allow-Headers', 'Content-Type')
+    await next()
+  })
+
+
   app.use('*', async (c, next) => { c.set('reqId', randomUUID().slice(0, 8)); await next() })
   app.use('*', logger())
 
@@ -122,15 +131,23 @@ export function createApp(config: Config, solver: Solver) {
 
   app.post('/in.php', async c => {
     const body = await c.req.json().catch(() => ({}))
+    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
     return c.json(await submitCaptcha(body))
   })
-  app.get('/res.php', c => c.json(pollResult(c.req.query('id'))))
+  app.get('/res.php', c => {
+    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
+    c.json(pollResult(c.req.query('id'))) 
+  })
   
   app.post('/api/in.php', async c => {
     const body = await c.req.json().catch(() => ({}))
+    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
     return c.json(await submitCaptcha(body))
   })
-  app.get('/api/res.php', c => c.json(pollResult(c.req.query('id'))))
+  app.get('/api/res.php', c => {
+    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
+    c.json(pollResult(c.req.query('id')))
+  })
 
   let honoServer: ServerType | null = null
 
