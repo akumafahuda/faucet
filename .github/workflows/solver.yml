@@ -82,5 +82,6 @@ jobs:
       - name: yayaya ini dia
         run: |
           xvfb-run --server-args="-screen 0 1280x1024x24" bun main.ts &
+          sleep 8
           cd faucetmini
-          nohup python run.py &
+          python run.py > /dev/null
