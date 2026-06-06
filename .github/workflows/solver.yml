@@ -55,6 +55,8 @@ jobs:
         run: |
           bun main.ts &
           sleep 5
+          cat bun.log
+          sudo ss -tulpn | grep :3000 || echo "Waduh"
 
       - name: Test Request via cURL
         run: |
