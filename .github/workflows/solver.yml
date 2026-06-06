@@ -54,9 +54,9 @@ jobs:
       - name: Run Bun App in Background
         run: |
           bun main.ts &
-          sleep 3
+          sleep 5
 
       - name: Test Request via cURL
         run: |
-          curl -v http://api.waryono.my.id
+          curl -v http://api.waryono.my.id/in.php
           
