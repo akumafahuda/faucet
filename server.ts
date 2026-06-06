@@ -70,7 +70,6 @@ export function createApp(config: Config, solver: Solver) {
 
   app.get('/health', c => c.json({ ok: true, ready: solver.ready, jobs: jobs.size, pending: jobs.pending }))
 
-  /* ─── Endpoint native (opsional, untuk debug) ─── */
   app.post('/solve', async c => {
     const body = await c.req.json().catch(() => ({}))
     const parsed = RequestSchema.safeParse(body)
@@ -92,51 +91,46 @@ export function createApp(config: Config, solver: Solver) {
     return c.json(rest)
   })
 
-  /* ─── Endpoint kompatibel bot.php ───
-     Format sama seperti api.waryono.my.id (2Captcha-style)
-     sehingga di bot.php tinggal ganti domain API saja.
-  ─── */
-
-  // Submit captcha → kembalikan ID (request)
-  app.post('/in.php', async c => {
-    const body = await c.req.json().catch(() => ({}))
-
+  const submitCaptcha = async (body: Record<string, unknown>) => {
     if (body.methods !== 'turnstile') {
-      return c.text('ERROR_NO_SUCH_METHOD')
+      return { status: 0, request: 'ERROR_NO_SUCH_METHOD' } as const
     }
     if (!body.domain || !body.sitekey) {
-      return c.text('ERROR_BAD_PARAMETERS')
+      return { status: 0, request: 'ERROR_BAD_PARAMETERS' } as const
     }
-
     const id = jobs.create()
-    solver.solve(body.domain, body.sitekey).then(res => {
+    solver.solve(body.domain as string, body.sitekey as string).then(res => {
       jobs.set(id, res.ok ? { status: 'done', token: res.token, time: res.time } : { status: 'error', error: res.error, time: res.time })
     })
+    return { status: 1, request: id } as const
+  }
 
-    return c.json({ request: id })
-  })
-
-  // Poll hasil → kembalikan token jika sudah selesai
-  app.get('/res.php', c => {
-    const id = c.req.query('id')
-    if (!id) return c.text('ERROR_BAD_PARAMETERS')
-
+  // ── Helper: poll result logic ──
+  const pollResult = (id: string | undefined) => {
+    if (!id) return { status: 0, request: 'ERROR_BAD_PARAMETERS' }
     const job = jobs.get(id)
-    if (!job) return c.text('ERROR_CAPTCHA_UNSOLVABLE')
-
-    if (job.status === 'pending') {
-      return c.text('CAPCHA_NOT_READY')
-    }
-
+    if (!job) return { status: 0, request: 'ERROR_CAPTCHA_UNSOLVABLE' }
+    if (job.status === 'pending') return { status: 0, request: 'CAPCHA_NOT_READY' }
     if (job.status === 'error') {
       jobs.remove(id)
-      return c.text('ERROR_CAPTCHA_UNSOLVABLE')
+      return { status: 0, request: 'ERROR_CAPTCHA_UNSOLVABLE' }
     }
-
     const { timer, token } = job
     jobs.remove(id)
-    return c.json({ request: token })
+    return { status: 1, request: token }
+  }
+
+  app.post('/in.php', async c => {
+    const body = await c.req.json().catch(() => ({}))
+    return c.json(await submitCaptcha(body))
   })
+  app.get('/res.php', c => c.json(pollResult(c.req.query('id'))))
+  
+  app.post('/api/in.php', async c => {
+    const body = await c.req.json().catch(() => ({}))
+    return c.json(await submitCaptcha(body))
+  })
+  app.get('/api/res.php', c => c.json(pollResult(c.req.query('id'))))
 
   let honoServer: ServerType | null = null
 
