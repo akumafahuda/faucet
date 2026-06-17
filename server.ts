@@ -65,15 +65,6 @@ export function createApp(config: Config, solver: Solver) {
   const jobs = new Jobs(config.jobTTL, config.maxJobs)
   const app = new Hono()
 
-  // Di server.ts, tambahkan CORS middleware sebelum route definitions
-  app.use('*', async (c, next) => {
-    c.header('Access-Control-Allow-Origin', '*')
-    c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    c.header('Access-Control-Allow-Headers', 'Content-Type')
-    await next()
-  })
-
-
   app.use('*', async (c, next) => { c.set('reqId', randomUUID().slice(0, 8)); await next() })
   app.use('*', logger())
 
@@ -98,55 +89,6 @@ export function createApp(config: Config, solver: Solver) {
     const { timer, ...rest } = job
     jobs.remove(c.req.param('id'))
     return c.json(rest)
-  })
-
-  const submitCaptcha = async (body: Record<string, unknown>) => {
-    if (body.methods !== 'turnstile') {
-      return { status: 0, request: 'ERROR_NO_SUCH_METHOD' } as const
-    }
-    if (!body.domain || !body.sitekey) {
-      return { status: 0, request: 'ERROR_BAD_PARAMETERS' } as const
-    }
-    const id = jobs.create()
-    solver.solve(body.domain as string, body.sitekey as string).then(res => {
-      jobs.set(id, res.ok ? { status: 'done', token: res.token, time: res.time } : { status: 'error', error: res.error, time: res.time })
-    })
-    return { status: 1, request: id } as const
-  }
-
-  // ── Helper: poll result logic ──
-  const pollResult = (id: string | undefined) => {
-    if (!id) return { status: 0, request: 'ERROR_BAD_PARAMETERS' }
-    const job = jobs.get(id)
-    if (!job) return { status: 0, request: 'ERROR_CAPTCHA_UNSOLVABLE' }
-    if (job.status === 'pending') return { status: 0, request: 'CAPCHA_NOT_READY' }
-    if (job.status === 'error') {
-      jobs.remove(id)
-      return { status: 0, request: 'ERROR_CAPTCHA_UNSOLVABLE' }
-    }
-    const { timer, token } = job
-    jobs.remove(id)
-    return { status: 1, request: token }
-  }
-
-  app.post('/in.php', async c => {
-    const body = await c.req.json().catch(() => ({}))
-    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
-    return c.json(await submitCaptcha(body))
-  })
-  app.get('/res.php', c => {
-    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
-    return c.json(pollResult(c.req.query('id'))) 
-  })
-  
-  app.post('/api/in.php', async c => {
-    const body = await c.req.json().catch(() => ({}))
-    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
-    return c.json(await submitCaptcha(body))
-  })
-  app.get('/api/res.php', c => {
-    c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
-    return c.json(pollResult(c.req.query('id')))
   })
 
   let honoServer: ServerType | null = null
