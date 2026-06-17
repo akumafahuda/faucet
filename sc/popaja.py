@@ -23,12 +23,12 @@ FAUCET_BASE = "https://faucet.popaja.com"
 SOLVER_BASE = "http://localhost:3000"
 DEFAULT_REFERRER = "mafatifulh@gmail.com"
 COOLDOWN_SECONDS = 600  # 10 menit
-MAX_SOLVER_CONCURRENT = 3
+MAX_SOLVER_CONCURRENT = 5
 LOG_FILE = "popaja.log"
 ACCOUNTS_FILE = "accounts.txt"
 
 # Proxy
-PROXY_SOURCE = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
+PROXY_SOURCE = "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text&protocol=http"
 PROXY_REFRESH_INTERVAL = 1800  # 30 menit
 MAX_RETRY_WITH_PROXY = 3
 
