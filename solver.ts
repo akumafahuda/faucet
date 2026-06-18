@@ -3,9 +3,9 @@ import type { Config } from './config'
 
 const B_TIMEOUT = 120_000
 const P_TIMEOUT = 300_000
-const NAV_TIMEOUT = 30_000
+const NAV_TIMEOUT = 45_000
 const MIN_LEN = 10
-const MAX_CONCURRENT_BROWSERS = 12
+const MAX_CONCURRENT_BROWSERS = 2
 
 function cleanHtml(str: string): string {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')
