@@ -138,7 +138,8 @@ class Worker:
 
     def solve(self):
         with solver_sem:
-            payload = {"url": f"{BASE}/", "sitekey": SITEKEY}
+            px_str = self.proxy.get("http") if self.proxy else None
+            payload = {"url": f"{BASE}/", "sitekey": SITEKEY, "proxy": px_str}
             res = self.request("POST", f"{SOLVER}/solve", json=payload, timeout=60)
             jid = res.get("id")
             if not jid:
@@ -178,10 +179,13 @@ class Worker:
             msg = res.get("message", "Unknown error")
             if "wait 10 minutes" in msg.lower():
                 self.last_claim = time.time()
+            else:
+                self.rotate()
             logging.error(f"[{self.email}] Claim rejected: {msg}")
             return False
         except Exception as e:
             logging.error(f"[{self.email}] Claim crash: {e}")
+            self.rotate()
             return False
 
     def run(self, amount, currency):
