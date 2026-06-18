@@ -10,7 +10,7 @@ BASE = "https://faucet.popaja.com"
 SOLVER = "http://localhost:3000"
 DEFAULT_REF = "mafatifulh@gmail.com"
 COOLDOWN = 605
-MAX_SOLVER = 40
+MAX_SOLVER = 5
 SITEKEY = "0x4AAAAAADVtnPjW6RpchdBM"
 TIMEOUT = 10
 
@@ -140,7 +140,7 @@ class Worker:
         with solver_sem:
             px_str = self.proxy.get("http") if self.proxy else None
             payload = {"url": f"{BASE}/", "sitekey": SITEKEY, "proxy": px_str}
-            res = self.request("POST", f"{SOLVER}/solve", json=payload, timeout=60)
+            res = self.request("POST", f"{SOLVER}/solve", json=payload, timeout=90)
             jid = res.get("id")
             if not jid:
                 raise Exception("Empty solver ID")
