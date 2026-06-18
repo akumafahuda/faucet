@@ -103,18 +103,19 @@ class Worker:
             self.session.proxies.clear()
 
     def request(self, method, url, parse_json=True, **kwargs):
+        t_out = kwargs.pop("timeout", TIMEOUT)
         for _ in range(5):
             try:
                 target = requests if "localhost" in url or "127.0.0.1" in url else self.session
-                r = target.request(method, url, timeout=TIMEOUT, **kwargs)
+                r = target.request(method, url, timeout=t_out, **kwargs)
                 if r.status_code == 200:
                     return r.json() if parse_json else r
                 raise Exception(f"HTTP {r.status_code}")
-            except Exception:
+            except Exception as e:
                 if "localhost" not in url:
                     self.rotate()
                 else:
-                    raise
+                    raise e
         raise Exception("Max retries reached")
 
     def init(self):
@@ -122,7 +123,15 @@ class Worker:
             self.request("GET", f"{BASE}/?r={self.ref}", parse_json=False)
             t = str(int(time.time() * 1000))
             res = self.request("GET", f"{BASE}/api.php", params={"action": "get_user_stats", "email": self.email, "t": t})
-            self.last_claim = float(res.get("faucet", {}).get("last_claim", time.time()))
+            
+            srv_val = res.get("faucet", {}).get("last_claim", 0)
+            if srv_val:
+                val = float(srv_val)
+                if val > 999999999999:
+                    val /= 1000
+                self.last_claim = val
+            else:
+                self.last_claim = 0
             return True
         except Exception:
             return False
@@ -168,10 +177,12 @@ class Worker:
                 return True
             
             msg = res.get("message", "Unknown error")
-            if "wait" in msg.lower():
+            if "wait 10 minutes" in msg.lower():
                 self.last_claim = time.time()
+            logging.error(f"[{self.email}] Claim rejected: {msg}")
             return False
-        except Exception:
+        except Exception as e:
+            logging.error(f"[{self.email}] Claim crash: {e}")
             return False
 
     def run(self, amount, currency):
@@ -183,11 +194,16 @@ class Worker:
                 self.initialized = True
                 logging.info(f"[{self.email}] Account initialized successfully.")
 
-            elapsed = time.time() - self.last_claim
+            if self.last_claim == 0:
+                elapsed = COOLDOWN + 1
+            else:
+                elapsed = time.time() - self.last_claim
+
             if elapsed < COOLDOWN:
                 time.sleep(min(COOLDOWN - elapsed, 30))
                 continue
             
+            logging.info(f"[{self.email}] Triggering claim process...")
             self.claim(amount, currency)
             time.sleep(2)
 
