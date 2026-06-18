@@ -90,6 +90,7 @@ class Worker:
         })
         self.proxy = None
         self.last_claim = 0
+        self.initialized = False
         self.rotate()
 
     def rotate(self):
@@ -167,7 +168,7 @@ class Worker:
                 return True
             
             msg = res.get("message", "Unknown error")
-            if "wait 10 minutes" in msg.lower():
+            if "wait" in msg.lower():
                 self.last_claim = time.time()
             return False
         except Exception:
@@ -175,10 +176,11 @@ class Worker:
 
     def run(self, amount, currency):
         while True:
-            if self.last_claim == 0:
+            if not self.initialized:
                 if not self.init():
                     time.sleep(2)
                     continue
+                self.initialized = True
                 logging.info(f"[{self.email}] Account initialized successfully.")
 
             elapsed = time.time() - self.last_claim
@@ -187,7 +189,7 @@ class Worker:
                 continue
             
             self.claim(amount, currency)
-            time.sleep(5)
+            time.sleep(2)
 
 def load_accs():
     accs = []
