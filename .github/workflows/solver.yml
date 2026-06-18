@@ -30,7 +30,7 @@ jobs:
       - name: Install Dependencies
         run: |
           bun install
-          pip install requests aiohttp brotli
+          pip install requests aiohttp brotli pysocks
 
       - name: Install Debian Chromium & Xvfb
         run: |
