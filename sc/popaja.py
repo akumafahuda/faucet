@@ -83,7 +83,7 @@ class Worker:
         self.ref = ref
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
             "Accept": "application/json, text/javascript, */*; q=0.01",
             "X-Requested-With": "XMLHttpRequest",
             "Referer": f"{BASE}/",
@@ -175,6 +175,12 @@ class Worker:
 
     def run(self, amount, currency):
         while True:
+            if self.last_claim == 0:
+                if not self.init():
+                    time.sleep(2)
+                    continue
+                logging.info(f"[{self.email}] Account initialized successfully.")
+
             elapsed = time.time() - self.last_claim
             if elapsed < COOLDOWN:
                 time.sleep(min(COOLDOWN - elapsed, 30))
@@ -221,9 +227,8 @@ def main():
     threading.Thread(target=proxy_loop, daemon=True).start()
     
     for w in workers:
-        if w.init():
-            threading.Thread(target=w.run, args=(amount, currency), daemon=True).start()
-            time.sleep(0.5)
+        threading.Thread(target=w.run, args=(amount, currency), daemon=True).start()
+        time.sleep(0.2)
             
     try:
         while True:
