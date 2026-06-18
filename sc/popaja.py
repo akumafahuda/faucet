@@ -138,8 +138,7 @@ class Worker:
 
     def solve(self):
         with solver_sem:
-            px_str = self.proxy.get("http") if self.proxy else None
-            payload = {"url": f"{BASE}/", "sitekey": SITEKEY, "proxy": px_str}
+            payload = {"url": f"{BASE}/", "sitekey": SITEKEY}
             res = self.request("POST", f"{SOLVER}/solve", json=payload, timeout=60)
             jid = res.get("id")
             if not jid:
