@@ -1,16 +1,15 @@
 import { Hono } from 'hono'
-import { logger } from 'hono/logger'
 import { serve, type ServerType } from '@hono/node-server'
-import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import type { Config } from './config'
 import type { Solver } from './solver'
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
-const RequestSchema = z.object({
+const Schema = z.object({
   url: z.string().url(),
   sitekey: z.string().min(1).optional(),
+  proxy: z.string().url().optional(),
 })
 
 type Job = {
@@ -22,9 +21,9 @@ type Job = {
   time?: number
 }
 
-class Jobs {
+class Queue {
   #store = new Map<string, Job>()
-  #counter = 1
+  #count = 1
   #ttl: number
   #max: number
 
@@ -35,7 +34,7 @@ class Jobs {
       const first = this.#store.keys().next().value
       if (first) this.remove(first)
     }
-    const id = String(this.#counter++)
+    const id = String(this.#count++)
     const timer = setTimeout(() => { if (this.#store.get(id)?.status === 'pending') this.#store.delete(id) }, this.#ttl)
     this.#store.set(id, { status: 'pending', createdAt: Date.now(), timer })
     return id
@@ -62,53 +61,47 @@ class Jobs {
 }
 
 export function createApp(config: Config, solver: Solver) {
-  const jobs = new Jobs(config.jobTTL, config.maxJobs)
+  const q = new Queue(config.jobTTL, config.maxJobs)
   const app = new Hono()
 
-  app.use('*', async (c, next) => { c.set('reqId', randomUUID().slice(0, 8)); await next() })
-  app.use('*', logger())
-
-  app.get('/health', c => c.json({ ok: true, ready: solver.ready, jobs: jobs.size, pending: jobs.pending }))
+  app.get('/health', c => c.json({ ok: true, ready: solver.ready, jobs: q.size, pending: q.pending }))
 
   app.post('/solve', async c => {
     const body = await c.req.json().catch(() => ({}))
-    const parsed = RequestSchema.safeParse(body)
-    if (!parsed.success) return c.json({ error: 'Invalid body', issues: parsed.error.issues }, 400)
-    const { url, sitekey } = parsed.data
-    const id = jobs.create()
-    solver.solve(url, sitekey ?? null).then(res => {
-      jobs.set(id, res.ok ? { status: 'done', token: res.token, time: res.time } : { status: 'error', error: res.error, time: res.time })
+    const parsed = Schema.safeParse(body)
+    if (!parsed.success) return c.json({ error: 'Invalid body' }, 400)
+    const { url, sitekey, proxy } = parsed.data
+    const id = q.create()
+    solver.solve(url, sitekey ?? null, proxy ?? null).then(res => {
+      q.set(id, res.ok ? { status: 'done', token: res.token, time: res.time } : { status: 'error', error: res.error, time: res.time })
     })
     return c.json({ id }, 202)
   })
 
   app.get('/solve/result/:id', c => {
-    const job = jobs.get(c.req.param('id'))
+    const job = q.get(c.req.param('id'))
     if (!job) return c.json({ error: 'Not found' }, 404)
     if (job.status === 'pending') return c.json({ status: 'pending' }, 202)
     const { timer, ...rest } = job
-    jobs.remove(c.req.param('id'))
+    q.remove(c.req.param('id'))
     return c.json(rest)
   })
 
-  let honoServer: ServerType | null = null
+  let server: ServerType | null = null
 
   return {
     app,
     start: async () => {
       await solver.init()
-      honoServer = serve({ port: config.port, fetch: app.fetch })
-      console.log(`[server] http://localhost:${config.port}`)
+      server = serve({ port: config.port, fetch: app.fetch })
+      console.log(`[server] Running on port ${config.port}`)
       return { port: config.port, fetch: app.fetch }
     },
     stop: async () => {
-      console.log(`[server] draining ${jobs.pending} jobs…`)
-      await jobs.drain()
-      if (honoServer) {
-        await new Promise<void>((resolve, reject) => {
-          honoServer!.close((err) => (err ? reject(err) : resolve()))
-        })
-        honoServer = null
+      await q.drain()
+      if (server) {
+        await new Promise<void>((res, rej) => { server!.close((err) => (err ? rej(err) : res())) })
+        server = null
       }
       await solver.stop()
     },
