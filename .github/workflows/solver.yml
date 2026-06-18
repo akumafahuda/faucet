@@ -2,7 +2,7 @@ name: Test Bun App with Nginx and Local DNS
 
 on:
   push:
-    branches: [ "actions" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -54,4 +54,4 @@ jobs:
           echo "Last run: $(date '+%Y-%m-%d %H:%M:%S')" > last_run.txt
           git add last_run.txt
           git diff --staged --quiet || git commit -m "chore: update last run $(date '+%Y-%m-%d %H:%M')"
-          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git actions
+          git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git main
