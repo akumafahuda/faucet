@@ -108,7 +108,7 @@ class Worker:
             try:
                 target = requests if "localhost" in url or "127.0.0.1" in url else self.session
                 r = target.request(method, url, timeout=t_out, **kwargs)
-                if r.status_code == 200:
+                if r.status_code in [200, 202]:
                     return r.json() if parse_json else r
                 raise Exception(f"HTTP {r.status_code}")
             except Exception as e:
@@ -189,7 +189,7 @@ class Worker:
         while True:
             if not self.initialized:
                 if not self.init():
-                    time.sleep(2)
+                    time.sleep(5)
                     continue
                 self.initialized = True
                 logging.info(f"[{self.email}] Account initialized successfully.")
@@ -205,7 +205,7 @@ class Worker:
             
             logging.info(f"[{self.email}] Triggering claim process...")
             self.claim(amount, currency)
-            time.sleep(2)
+            time.sleep(5)
 
 def load_accs():
     accs = []
