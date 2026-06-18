@@ -1,13 +1,13 @@
 import { z } from 'zod'
 import { parseArgs } from 'util'
-import { config as dotenvConfig } from 'dotenv'
+import { config as dotenv } from 'dotenv'
 
-dotenvConfig()
+dotenv()
 
 export const Config = z.object({
   port: z.coerce.number().default(3000),
   timeout: z.coerce.number().default(60_000),
-  headless: z.coerce.boolean().default(false),
+  headless: z.coerce.boolean().default(true),
   jobTTL: z.coerce.number().default(300_000),
   maxJobs: z.coerce.number().default(1000),
 })
@@ -18,13 +18,13 @@ function env(name: string): string | undefined {
   return process.env[name]
 }
 
-function coerceEnv(value: unknown, envValue: string | undefined): unknown {
-  if (value !== undefined) return value
-  if (envValue === undefined) return undefined
-  if (envValue === 'true') return true
-  if (envValue === 'false') return false
-  if (/^\d+$/.test(envValue)) return Number(envValue)
-  return envValue
+function coerce(val: unknown, ev: string | undefined): unknown {
+  if (val !== undefined) return val
+  if (ev === undefined) return undefined
+  if (ev === 'true') return true
+  if (ev === 'false') return false
+  if (/^\d+$/.test(ev)) return Number(ev)
+  return ev
 }
 
 export function loadConfig(argv: string[]): Config {
@@ -50,9 +50,9 @@ export function loadConfig(argv: string[]): Config {
   }
 
   return Config.parse({
-    port: coerceEnv(args.port, env('PORT')),
-    timeout: coerceEnv(args.timeout, env('TIMEOUT')),
-    headless: coerceEnv(args.headless, env('HEADLESS')),
-    jobTTL: coerceEnv(args.jobTTL, env('JOB_TTL')),
+    port: coerce(args.port, env('PORT')),
+    timeout: coerce(args.timeout, env('TIMEOUT')),
+    headless: coerce(args.headless, env('HEADLESS')),
+    jobTTL: coerce(args.jobTTL, env('JOB_TTL')),
   })
 }
